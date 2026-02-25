@@ -43,3 +43,6 @@ Thumbs.db
 
 # Tools
 tools/.venv/
+
+# Auth tokens
+projects/popout/.npmrc
