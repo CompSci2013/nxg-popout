@@ -3,5 +3,6 @@
  */
 
 export * from './lib/popout.interface';
+export * from './lib/popout-context.service';
 export * from './lib/popout-manager.service';
 export * from './lib/popout.module';
