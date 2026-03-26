@@ -25,6 +25,7 @@ import {
   Type,
   EventEmitter
 } from '@angular/core';
+import { PopOutContextService } from './popout-context.service';
 import { DomPortalOutlet, ComponentPortal } from '@angular/cdk/portal';
 import { Subject } from 'rxjs';
 import {
@@ -120,14 +121,24 @@ export class PopOutManagerService implements OnDestroy {
     // Write minimal HTML skeleton (no styles yet — component styles don't exist until attachment)
     this.writePopoutDocument(popoutWindow);
 
+    // Create PopOutContextService instance for this pop-out.
+    // Portal-rendered components can @Optional() inject this to detect
+    // they're in a pop-out and wait for the environment to be ready.
+    const popOutContext = new PopOutContextService();
+
+    // Create a child injector that provides PopOutContextService
+    // alongside the host's DI context (ResourceManagementService, etc.)
+    const portalInjector = Injector.create({
+      providers: [{ provide: PopOutContextService, useValue: popOutContext }],
+      parent: this.hostInjector
+    });
+
     // Create CDK portal outlet targeting the popout's body.
-    // Uses hostInjector so portal components inherit the host's DI context
-    // (e.g. ResourceManagementService provided at the component level).
     const outlet = new DomPortalOutlet(
       popoutWindow.document.body,
       this.componentFactoryResolver,
       this.appRef,
-      this.hostInjector
+      portalInjector
     );
 
     // Attach component via portal — this triggers Angular to generate component styles
@@ -159,6 +170,12 @@ export class PopOutManagerService implements OnDestroy {
 
     // Wire up all @Output() EventEmitters as messages
     this.wireComponentOutputs(componentRef.instance, panelId);
+
+    // Signal that the pop-out environment is ready.
+    // Styles are copied, event forwarding is active, data is set.
+    // Components subscribed to ready$ can now safely re-initialize
+    // DOM-dependent libraries (e.g. Plotly).
+    popOutContext.signalReady();
 
     this.poppedOutPanels.add(panelId);
 
