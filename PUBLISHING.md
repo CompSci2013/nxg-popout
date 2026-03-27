@@ -193,6 +193,54 @@ npm install @halolabs/ngx-popout@1.1.0
 
 Group-level URLs let consumers install any `@halolabs/*` package from the halo group with a single registry entry.
 
+## Finding Project IDs and Group IDs
+
+The registry URLs require numeric IDs. Here's how to look them up.
+
+### Find a Project ID
+
+**Via the GitLab UI:** Open the project page — the ID is shown below the project name on the main page.
+
+**Via the API — by path:**
+
+```bash
+curl -s -H "PRIVATE-TOKEN: <your-token>" \
+  "http://gitlab.minilab/api/v4/projects?search=ngx-popout" \
+  | python3 -c "import sys,json; [print(f'{p[\"id\"]}: {p[\"path_with_namespace\"]}') for p in json.load(sys.stdin)]"
+```
+
+**Via the API — exact path lookup:**
+
+```bash
+curl -s -H "PRIVATE-TOKEN: <your-token>" \
+  "http://gitlab.minilab/api/v4/projects/halo%2Fngx-popout" \
+  | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'ID: {d[\"id\"]}, Path: {d[\"path_with_namespace\"]}')"
+```
+
+The `%2F` is a URL-encoded `/`. So `halo/ngx-popout` becomes `halo%2Fngx-popout`.
+
+### Find a Group ID
+
+**Via the GitLab UI:** Open the group page — the ID is shown in the group settings or on the main group page.
+
+**Via the API:**
+
+```bash
+curl -s -H "PRIVATE-TOKEN: <your-token>" \
+  "http://gitlab.minilab/api/v4/groups?search=halo" \
+  | python3 -c "import sys,json; [print(f'{g[\"id\"]}: {g[\"full_path\"]}') for g in json.load(sys.stdin)]"
+```
+
+### List All Projects in a Group
+
+To see every project (and its ID) within a group:
+
+```bash
+curl -s -H "PRIVATE-TOKEN: <your-token>" \
+  "http://gitlab.minilab/api/v4/groups/7/projects?per_page=100" \
+  | python3 -c "import sys,json; [print(f'{p[\"id\"]:>4}: {p[\"path\"]}') for p in json.load(sys.stdin)]"
+```
+
 ## Troubleshooting
 
 | Problem | Cause | Fix |
