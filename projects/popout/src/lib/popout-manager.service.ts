@@ -158,11 +158,25 @@ export class PopOutManagerService implements OnDestroy {
     // bridges this gap.
     const eventForwardingController = this.forwardDragEvents(popoutWindow);
 
-    // Set data on component instance
+    // Set data on component instance and trigger ngOnChanges
+    // Portal-rendered components have no parent template, so Angular won't
+    // call ngOnChanges automatically. We simulate what template binding does:
+    // set properties, build SimpleChanges, call ngOnChanges, detectChanges.
     if (data) {
+      const instance = componentRef.instance as any;
+      const changes: Record<string, SimpleChange> = {};
+
       Object.keys(data).forEach(key => {
-        (componentRef.instance as any)[key] = data[key];
+        const currentValue = data[key];
+        instance[key] = currentValue;
+        changes[key] = new SimpleChange(undefined, currentValue, true);
       });
+
+      if (typeof instance.ngOnChanges === 'function') {
+        instance.ngOnChanges(changes);
+      }
+
+      componentRef.changeDetectorRef.detectChanges();
     }
 
     // Set window title from data.title, or fall back to popoutId
