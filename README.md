@@ -105,7 +105,91 @@ constructor(@Optional() private popOutContext: PopOutContextService) {
 }
 ```
 
-## API
+## Orchestrator (Recommended)
+
+For most use cases, use `PopOutOrchestrator` instead of `PopOutManagerService` directly. It eliminates toggle logic, close subscription management, and cleanup boilerplate.
+
+### Setup
+
+```typescript
+import { PopoutModule, PopOutOrchestrator, PopOutManagerService } from '@halolabs/ngx-popout';
+
+@NgModule({
+  imports: [PopoutModule],
+  // PopOutManagerService and PopOutOrchestrator are provided per-component, not here
+})
+export class MyModule {}
+```
+
+### Consumer component
+
+```typescript
+@Component({
+  selector: 'app-search-page',
+  providers: [PopOutManagerService, PopOutOrchestrator],
+  template: `
+    <app-results-table *ngIf="!popouts.isOpen('results')" [data]="results">
+    </app-results-table>
+
+    <button (click)="popouts.toggle('results', { data: results, title: 'Search Results' })">
+      {{ popouts.isOpen('results') ? 'Pop In' : 'Pop Out' }} Results
+    </button>
+  `
+})
+export class SearchPageComponent implements OnInit, OnDestroy {
+  results: any[] = [];
+
+  constructor(
+    public popouts: PopOutOrchestrator,
+    private injector: Injector
+  ) {}
+
+  ngOnInit() {
+    this.popouts.register('results', ResultsTablePopout, { width: 1400, height: 900 });
+    this.popouts.register('chart', ChartPopout);
+    this.popouts.initialize(this.injector);
+
+    this.popouts.closed$.subscribe(popoutId => {
+      // Popout was closed — component re-appears inline via *ngIf
+    });
+  }
+
+  // When data changes, sync to any open popouts
+  onDataUpdate(newResults: any[]) {
+    this.results = newResults;
+    this.popouts.syncInputs('results', { data: newResults });
+  }
+
+  ngOnDestroy() {
+    // Orchestrator handles cleanup automatically
+  }
+}
+```
+
+### Orchestrator API
+
+| Method | Description |
+|--------|-------------|
+| `register(popoutId, componentType, defaultFeatures?)` | Register a popout-able component. Call in ngOnInit. |
+| `initialize(hostInjector)` | Initialize once. Portal components inherit this injector's DI context. |
+| `toggle(popoutId, data?, features?)` | Open if closed, close if open. Returns true if opened. |
+| `isOpen(popoutId)` | Check if a popout is currently open. |
+| `getOpenPopouts()` | List all currently open popout IDs. |
+| `syncInputs(popoutId, inputs)` | Update @Input properties on an open popout (triggers ngOnChanges + CD). |
+| `broadcast(state, extra?)` | Push state to all popouts via BroadcastChannel + trigger CD. |
+| `close(popoutId)` | Close a specific popout. |
+| `closeAll()` | Close all open popouts. |
+
+| Observable | Description |
+|------------|-------------|
+| `closed$` | Emits popoutId when a popout window is closed. |
+| `messages$` | All messages from popout windows (component @Output events + BroadcastChannel). |
+
+---
+
+## Low-Level API
+
+For advanced use cases where the orchestrator doesn't provide enough control, use `PopOutManagerService` directly.
 
 ### PopOutManagerService
 
