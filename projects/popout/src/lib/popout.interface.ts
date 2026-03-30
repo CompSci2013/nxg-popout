@@ -34,7 +34,7 @@ export enum PopOutMessageType {
   COMPONENT_OUTPUT = 'COMPONENT_OUTPUT',
 
   /** Popout → Main: popout is ready to receive state (BroadcastChannel) */
-  PANEL_READY = 'PANEL_READY',
+  POPOUT_READY = 'POPOUT_READY',
 }
 
 /**
@@ -44,8 +44,8 @@ export interface PopOutWindowRef {
   window: Window;
   channel: BroadcastChannel;
   checkInterval: number;
-  panelId: string;
-  panelType: string;
+  popoutId: string;
+  componentName: string;
   outlet: DomPortalOutlet;
   componentRef: ComponentRef<any>;
   styleObserver: MutationObserver | null;

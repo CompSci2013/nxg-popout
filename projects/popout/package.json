@@ -1,6 +1,6 @@
 {
   "name": "@halolabs/ngx-popout",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Angular CDK portal-based pop-out window manager",
   "license": "MIT",
   "peerDependencies": {

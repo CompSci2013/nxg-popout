@@ -79,14 +79,14 @@ this.popOutManager.setPopoutInputs('chart-1', {
 All `@Output()` EventEmitters on the portal component are auto-wired as messages:
 
 ```typescript
-this.popOutManager.messages$.subscribe(({ panelId, message }) => {
+this.popOutManager.messages$.subscribe(({ popoutId, message }) => {
   if (message.type === PopOutMessageType.COMPONENT_OUTPUT) {
     const { outputName, data } = message.payload;
     // Handle component output
   }
 });
 
-this.popOutManager.closed$.subscribe(panelId => {
+this.popOutManager.closed$.subscribe(popoutId => {
   // Pop-out window was closed
 });
 ```
@@ -112,14 +112,14 @@ constructor(@Optional() private popOutContext: PopOutContextService) {
 | Method | Description |
 |--------|-------------|
 | `initialize(hostInjector?)` | Call once from host component. Portal components inherit this injector's DI context. |
-| `openPopOut(panelId, componentType, data, features?)` | Open a pop-out window and render a component. Returns `true` on success. |
-| `setPopoutInputs(panelId, inputs)` | Set `@Input()` properties, trigger `ngOnChanges`, and run change detection. |
-| `updatePopoutData(panelId, key, value)` | Set a single property on the component instance. |
+| `openPopOut(popoutId, componentType, data, features?)` | Open a pop-out window and render a component. Returns `true` on success. |
+| `setPopoutInputs(popoutId, inputs)` | Set `@Input()` properties, trigger `ngOnChanges`, and run change detection. |
+| `updatePopoutData(popoutId, key, value)` | Set a single property on the component instance. |
 | `broadcastState(state, extra?)` | Broadcast state via BroadcastChannel and trigger CD on all pop-outs. |
-| `sendToPopout(panelId, message)` | Send a message to a specific pop-out via BroadcastChannel. |
-| `closePopOut(panelId)` | Close a specific pop-out. |
+| `sendToPopout(popoutId, message)` | Send a message to a specific pop-out via BroadcastChannel. |
+| `closePopOut(popoutId)` | Close a specific pop-out. |
 | `closeAllPopOuts()` | Close all pop-outs. |
-| `isPoppedOut(panelId)` | Check if a panel is currently popped out. |
+| `isPoppedOut(popoutId)` | Check if a panel is currently popped out. |
 | `getPoppedOutPanels()` | Get list of all popped-out panel IDs. |
 
 ### Observables

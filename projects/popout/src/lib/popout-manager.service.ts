@@ -38,9 +38,9 @@ import {
 
 @Injectable()
 export class PopOutManagerService implements OnDestroy {
-  private poppedOutPanels = new Set<string>();
+  private activePopouts = new Set<string>();
   private popoutWindows = new Map<string, PopOutWindowRef>();
-  private messagesSubject = new Subject<{ panelId: string; message: PopOutMessage }>();
+  private messagesSubject = new Subject<{ popoutId: string; message: PopOutMessage }>();
   private closedSubject = new Subject<string>();
   private blockedSubject = new Subject<string>();
   private beforeUnloadHandler = () => this.closeAllPopOuts();
@@ -74,30 +74,30 @@ export class PopOutManagerService implements OnDestroy {
     window.addEventListener('beforeunload', this.beforeUnloadHandler);
   }
 
-  isPoppedOut(panelId: string): boolean {
-    return this.poppedOutPanels.has(panelId);
+  isPoppedOut(popoutId: string): boolean {
+    return this.activePopouts.has(popoutId);
   }
 
   getPoppedOutPanels(): string[] {
-    return Array.from(this.poppedOutPanels);
+    return Array.from(this.activePopouts);
   }
 
   /**
    * Open a pop-out window and render an Angular component into it.
    *
-   * @param panelId - Unique panel identifier
+   * @param popoutId - Unique panel identifier
    * @param componentType - Angular component class to render
    * @param data - Data to set on the component instance (key → property)
    * @param features - Optional window size/position
    * @returns true if pop-out opened successfully
    */
   openPopOut(
-    panelId: string,
+    popoutId: string,
     componentType: Type<any>,
     data: Record<string, any>,
     features?: Partial<PopOutWindowFeatures>
   ): boolean {
-    if (this.poppedOutPanels.has(panelId)) {
+    if (this.activePopouts.has(popoutId)) {
       return false;
     }
 
@@ -111,10 +111,10 @@ export class PopOutManagerService implements OnDestroy {
       ...features
     });
 
-    const popoutWindow = window.open('about:blank', `panel-${panelId}`, windowFeatures);
+    const popoutWindow = window.open('about:blank', `popout-${popoutId}`, windowFeatures);
 
     if (!popoutWindow) {
-      this.blockedSubject.next(panelId);
+      this.blockedSubject.next(popoutId);
       return false;
     }
 
@@ -165,11 +165,11 @@ export class PopOutManagerService implements OnDestroy {
       });
     }
 
-    // Set window title from data.title, or fall back to panelId
-    popoutWindow.document.title = (data?.['title'] as string) || panelId;
+    // Set window title from data.title, or fall back to popoutId
+    popoutWindow.document.title = (data?.['title'] as string) || popoutId;
 
     // Wire up all @Output() EventEmitters as messages
-    this.wireComponentOutputs(componentRef.instance, panelId);
+    this.wireComponentOutputs(componentRef.instance, popoutId);
 
     // Signal that the pop-out environment is ready.
     // Styles are copied, event forwarding is active, data is set.
@@ -177,14 +177,14 @@ export class PopOutManagerService implements OnDestroy {
     // DOM-dependent libraries (e.g. Plotly).
     popOutContext.signalReady();
 
-    this.poppedOutPanels.add(panelId);
+    this.activePopouts.add(popoutId);
 
     // Set up BroadcastChannel for this panel
-    const channel = new BroadcastChannel(`panel-${panelId}`);
+    const channel = new BroadcastChannel(`popout-${popoutId}`);
 
     channel.onmessage = event => {
       this.ngZone.run(() => {
-        this.messagesSubject.next({ panelId, message: event.data });
+        this.messagesSubject.next({ popoutId, message: event.data });
       });
     };
 
@@ -192,17 +192,17 @@ export class PopOutManagerService implements OnDestroy {
     const checkInterval = window.setInterval(() => {
       if (popoutWindow.closed) {
         this.ngZone.run(() => {
-          this.handlePopOutClosed(panelId);
+          this.handlePopOutClosed(popoutId);
         });
       }
     }, 500);
 
-    this.popoutWindows.set(panelId, {
+    this.popoutWindows.set(popoutId, {
       window: popoutWindow,
       channel,
       checkInterval,
-      panelId,
-      panelType: componentType.name,
+      popoutId,
+      componentName: componentType.name,
       outlet,
       componentRef,
       styleObserver,
@@ -216,7 +216,7 @@ export class PopOutManagerService implements OnDestroy {
    * Auto-discover and subscribe to all @Output() EventEmitters on the component.
    * Each emission is relayed as a COMPONENT_OUTPUT message with the output name.
    */
-  private wireComponentOutputs(instance: any, panelId: string): void {
+  private wireComponentOutputs(instance: any, popoutId: string): void {
     const proto = Object.getPrototypeOf(instance);
     const allKeys = new Set([
       ...Object.keys(instance),
@@ -229,7 +229,7 @@ export class PopOutManagerService implements OnDestroy {
         if (value instanceof EventEmitter) {
           value.subscribe((payload: any) => {
             this.messagesSubject.next({
-              panelId,
+              popoutId,
               message: {
                 type: PopOutMessageType.COMPONENT_OUTPUT,
                 payload: { outputName: key, data: payload },
@@ -247,8 +247,8 @@ export class PopOutManagerService implements OnDestroy {
   /**
    * Update a property on a popout component instance.
    */
-  updatePopoutData(panelId: string, key: string, value: any): void {
-    const ref = this.popoutWindows.get(panelId);
+  updatePopoutData(popoutId: string, key: string, value: any): void {
+    const ref = this.popoutWindows.get(popoutId);
     if (ref?.componentRef) {
       (ref.componentRef.instance as any)[key] = value;
     }
@@ -266,8 +266,8 @@ export class PopOutManagerService implements OnDestroy {
    *
    * Domain-agnostic: the caller decides which properties to sync.
    */
-  setPopoutInputs(panelId: string, inputs: Record<string, any>): void {
-    const ref = this.popoutWindows.get(panelId);
+  setPopoutInputs(popoutId: string, inputs: Record<string, any>): void {
+    const ref = this.popoutWindows.get(popoutId);
     if (!ref?.componentRef) return;
 
     const instance = ref.componentRef.instance;
@@ -336,8 +336,8 @@ export class PopOutManagerService implements OnDestroy {
   /**
    * Send a message to a specific popout window.
    */
-  sendToPopout(panelId: string, message: PopOutMessage): void {
-    const ref = this.popoutWindows.get(panelId);
+  sendToPopout(popoutId: string, message: PopOutMessage): void {
+    const ref = this.popoutWindows.get(popoutId);
     if (ref) {
       try {
         ref.channel.postMessage(message);
@@ -347,13 +347,13 @@ export class PopOutManagerService implements OnDestroy {
     }
   }
 
-  closePopOut(panelId: string): void {
-    const ref = this.popoutWindows.get(panelId);
+  closePopOut(popoutId: string): void {
+    const ref = this.popoutWindows.get(popoutId);
     if (ref) {
       if (ref.window && !ref.window.closed) {
         ref.window.close();
       }
-      this.handlePopOutClosed(panelId);
+      this.handlePopOutClosed(popoutId);
     }
   }
 
@@ -596,8 +596,8 @@ export class PopOutManagerService implements OnDestroy {
     return controller;
   }
 
-  private handlePopOutClosed(panelId: string): void {
-    const ref = this.popoutWindows.get(panelId);
+  private handlePopOutClosed(popoutId: string): void {
+    const ref = this.popoutWindows.get(popoutId);
     if (!ref) {
       return;
     }
@@ -621,10 +621,10 @@ export class PopOutManagerService implements OnDestroy {
     }
 
     ref.channel.close();
-    this.popoutWindows.delete(panelId);
-    this.poppedOutPanels.delete(panelId);
+    this.popoutWindows.delete(popoutId);
+    this.activePopouts.delete(popoutId);
 
-    this.closedSubject.next(panelId);
+    this.closedSubject.next(popoutId);
   }
 
   ngOnDestroy(): void {
